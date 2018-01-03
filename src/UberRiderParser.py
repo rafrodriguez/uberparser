@@ -17,7 +17,7 @@ class UberRiderParser:
     - The message 'Canceled' is shown on a separate row
     - Splitted fares are identified with a text below the date and in a
       separate row
-    - The displyed fare does not consider the split fare
+    - The displayed fare does not consider the split fare
     - Dates use the format MM/DD/YY (what is this, 1900?)
 
     This module parses the information of Uber Riders webpage (either
@@ -136,6 +136,11 @@ class UberRiderParser:
         # Make column canceled boolean
         df['canceled'] = df['canceled'].apply(lambda x: True if x == 'Canceled'
                                              else False)
+
+        # Canceled by driver
+        df['driver_canceled'] = df.apply(lambda x: True if x['fare_total'] == 0.0 and x['canceled'] is False 
+                                             else False, axis=1)
+
         # Clean split_with column
         df['split_with'] = df['split_with'].apply(lambda x:
         x.replace('You split this fare with ', '') if 'split this' in x 
@@ -157,7 +162,7 @@ class UberRiderParser:
         
         # Column selection
         df = df[['date', 'driver', 'ride_type', 'city', 'payment', 
-                 'split_with', 'requested_by', 'canceled', 'currency', 
+                 'split_with', 'requested_by', 'canceled', 'driver_canceled','currency', 
                  'fare_total', 'fare_after_split']]
         
         # datatypes
