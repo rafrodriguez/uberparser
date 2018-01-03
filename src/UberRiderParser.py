@@ -11,23 +11,41 @@ import pandas as pd
 from pandas import DataFrame
 
 class UberRiderParser:
-    """As of January 2018 Uber Riders webpage lacks a "Export to CSV" option
+    """Parser of Uber Riders webpage.
+
+    As of January 2018 Uber Riders webpage lacks a "Export to CSV" option
     and the information is shown in a poor format, namely:
     - Costs 0 are shown as empty string instead of a 0
     - The message 'Canceled' is shown on a separate row
     - Splitted fares are identified with a text below the date and in a
       separate row
-    - The displyed fare does not consider the split fare
+    - The fare is shown as total and not the actual paid amount (when 
+      splitting fare)
     - Dates use the format MM/DD/YY (what is this, 1900?)
 
-    This module parses the information of Uber Riders webpage (either
-    web-scrapped or simply copied and pasted from web browser to a file) into a
-    pandas DataFrame.
+    The module implements a method that converts a file with the webscrapped
+    data and returns a pandas DataFrame.
+
+    Args:
+        filename (str): filename of a file with webscrapped information of the
+            rides summary pages of Uber Riders webpage
+
+    Example:
+        >>> from UberRiderParser import UberRiderParser
+        >>> parser = UberRiderParser(input_filename)
+        >>> df = parser.as_df()
+    
+    Note:
+        This module can be executed as follows to take a filename as input and
+        save a .xls file with the information of the file:
+        $ ./UberRiderParser.py webscrappedData.txt 
     """
 
     def __init__(self, filename):
         self.filename = filename
         self.separator = ';'
+        # These are the "base" available columns for every ride, as shown on
+        # Uber web
         self.columns = ['date',
                         'driver',
                         'fare',
@@ -119,6 +137,12 @@ class UberRiderParser:
         return lines
 
     def as_df(self):
+        """Parses the file point by self.filename into a pandas DataFrame.
+
+        Returns:
+            DataFrame: pandas DataFrame with the information contained in
+                self.filename.
+        """        
         table = self._read_file_as_list_of_lists()
         df = DataFrame(table)
         df.columns = self.columns
@@ -127,6 +151,11 @@ class UberRiderParser:
         df['date'] = pd.to_datetime(df['date'],infer_datetime_format=True)
 
         # Split fare column in currency and fare_total
+        # This fare is total (as displayed on Uber Riders webpage summmary) and
+        # does not take into account split fares (and it is indeed impossible
+        # to know the actual paid fare without clicking on View Details for
+        # each ride, doing that would require a more complicated logic and web
+        # parsing logic)
         df['currency'], df['fare_total'] = \
         zip(*df['fare'].apply(lambda x: x.split('$', 1)
                               if "$" in x else [None, 0.0]))
@@ -146,19 +175,10 @@ class UberRiderParser:
         x.replace('This trip was requested by ', '') if 'requested by' in x 
         else None)
 
-        # Add column with actual paid fare (case when split fare)
-        def get_actual_fare(row):
-            if row['split_with'] == None:
-                return row['fare_total']
-            else:
-                n = 1 + len(row['split_with'].split(' '))
-                return round(float(row['fare_total'])/n, 2)
-        df['fare_after_split'] = df.apply(get_actual_fare, axis=1)
-        
         # Column selection
         df = df[['date', 'driver', 'ride_type', 'city', 'payment', 
                  'split_with', 'requested_by', 'canceled', 'currency', 
-                 'fare_total', 'fare_after_split']]
+                 'fare_total', ]]
         
         # datatypes
         df = df.infer_objects()
