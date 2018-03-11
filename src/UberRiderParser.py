@@ -19,7 +19,8 @@ class UberRiderParser:
     - The message 'Canceled' is shown on a separate row
     - Splitted fares are identified with a text below the date and in a
       separate row
-    - The fare is shown as total and not the actual paid amount (when 
+    - Depending on who requested the trip, one can notice the split in either
+      "This trip was requested by" or in "You split this fare with"
       splitting fare)
     - Dates use the format MM/DD/YY (what is this, 1900?)
 
@@ -39,6 +40,18 @@ class UberRiderParser:
         This module can be executed as follows to take a filename as input and
         save a .xls file with the information of the file:
         $ ./UberRiderParser.py webscrappedData.txt 
+
+        The fare is taken as shown in the main table in the webpage, which does
+        not consider split fare. 
+        It is not possible to infer the actual paid amount without opening the
+        details of every single trip because the summary table, from where this
+        module assumes the data was scrapped, shows the fare before split(if 
+        any) and when split, it sometimes appears as "split fare with" and 
+        sometimes as "requested by", and lists at most one person, even when it
+        was split with more than one.
+        It is advisable to take the output of this module as is and manually
+        check the rows where the columns requested_by or split_with are not
+        empty.
     """
 
     def __init__(self, filename):
@@ -150,13 +163,13 @@ class UberRiderParser:
         # Fix date format
         df['date'] = pd.to_datetime(df['date'],infer_datetime_format=True)
 
-        # Split fare column in currency and fare_total
+        # Split fare column in currency and fare
         # This fare is total (as displayed on Uber Riders webpage summmary) and
         # does not take into account split fares (and it is indeed impossible
         # to know the actual paid fare without clicking on View Details for
         # each ride, doing that would require a more complicated logic and web
         # parsing logic)
-        df['currency'], df['fare_total'] = \
+        df['currency'], df['fare'] = \
         zip(*df['fare'].apply(lambda x: x.split('$', 1)
                               if "$" in x else [None, 0.0]))
         df['currency'] = df['currency'].apply(lambda x:
@@ -178,12 +191,11 @@ class UberRiderParser:
         # Column selection
         df = df[['date', 'driver', 'ride_type', 'city', 'payment', 
                  'split_with', 'requested_by', 'canceled', 'currency', 
-                 'fare_total', ]]
+                 'fare', ]]
         
         # datatypes
         df = df.infer_objects()
-        df['fare_total'] = pd.to_numeric(df['fare_total'])
-        df['fare_after_split'] = pd.to_numeric(df['fare_after_split'])
+        df['fare'] = pd.to_numeric(df['fare'])
         return df
 
 if __name__ == '__main__':
